@@ -1,78 +1,42 @@
 # Work OS 🎛️
 
-Work OS is a professional, open-source, configuration-driven developer workspace dashboard. It is designed to consolidate active project lifecycles, service credentials, custom command snippets, environment variables, bookmark links, notes, and calendars in a unified dashboard.
+Work OS is a professional, open-source, configuration-driven developer workspace dashboard. It is designed to consolidate SaaS project lifecycles, service credentials accounts, custom CLI script execution playbooks, bookmark resources, notes, and tasks in a unified workspace.
 
 ---
 
 ## 🚀 Key Features
 
-*   **Integrated Project Workspace**: A consolidated dashboard showing active projects grouped by status, technical stack metadata, git repository links, and deployment environments.
-*   **Dynamic Schema Configurator**: An in-app schema builder (located in Settings) that allows developers to define custom metadata fields on-the-fly for Projects, Links, Tasks, and Commands. Supported field types include Text, Textarea, Select, Multi-select, URL, Tags, and Reference mapping (e.g., linking a project to verified service credentials).
-*   **Workspace Layout Configurator**: Customize the dashboard view per project. A drag-and-drop configurator allows toggling visibility and reordering panels (such as Tasks, Notes, Links, Calendar, Deployments, and Environment Variables) using a lightweight, native HTML5 drag-and-drop implementation.
-*   **Environment Variables Viewer**: Track environment variable keys and values for Dev/Staging/Prod. Sensitive credentials are visually masked in the user interface (displayed as dots) with copy-to-clipboard actions (no cryptographic database-side encryption).
-*   **Floating Quick Capture**: A keyboard-accessible capture dialog (`⌘⇧N` or floating launcher) for logging quick ideas, commands, bookmarks, or tasks directly to active workspaces.
-*   **Terminal Command Catalog**: Maintain an interactive directory of project-specific command snippets (e.g., development, deployment, database migrations, tests) with quick-copy capabilities.
-*   **Google SSO Authentication**: Secure, credentials-free sign-in powered by Firebase Authentication and Google Identity Services (exclusively Google/Gmail accounts, email-password flows are disabled).
+*   **Integrated Project Workspace**: A consolidated project dashboard displaying stack metadata, Git repositories, deployment status, credentials links, environment variables, and associated scripts.
+*   **In-App Schema Builder**: An administrative config panel (located in Settings) that allows developers to define custom metadata fields on-the-fly for Projects, Links, Tasks, and Commands. Supported field types include Text, Textarea, Select, Multi-select, URL, Tags, and Reference mapping (e.g. linking a project to verified service credentials).
+*   **Modular Workspace Configurator**: Tailor the dashboard structure for each project. A drag-and-drop workspace manager allows users to toggle panel visibility and reorder layout columns (such as Tasks, Notes, Links, Calendar, Deployments, and Environment Variables).
+*   **Sensitive Data Masking**: Tracks environment variables for Dev, Staging, and Production. Sensitive keys/values are masked in the UI with quick copy-to-clipboard functionality.
+*   **Floating Quick Capture**: A keyboard-accessible capture drawer (`⌘⇧N` or floating button launcher) to capture bookmarks, ideas, command snippets, or tasks immediately into project backlogs.
+*   **Terminal Command Playbooks**: Maintain an interactive playbook of project-specific commands (e.g., dev servers, deployment scripts, database migrations) with quick-copy actions.
+*   **Multi-Provider Authentication**: Secure accounts managed via Firebase Authentication supporting Google SSO, GitHub SSO, and traditional Email/Password credentials.
 
 ---
 
 ## 🛠️ Technology Stack
 
-*   **Framework**: Next.js 14 (configured as a single-page application router catch-all)
-*   **Frontend**: React 18.3, TypeScript, Vite
-*   **State Management**: Custom local state reactivity engine powered by React's native `useSyncExternalStore` for immediate client-side rendering with Firestore sync
-*   **Drag & Drop**: Custom, dependency-free drag-and-drop hook (`useReorder`) built directly on HTML5 Drag and Drop events
-*   **UI Components**: Radix UI Primitives, Recharts, Lucide Icons
-*   **Database & Auth**: Firebase Authentication & Google Cloud Firestore
+*   **Framework**: Next.js 14 (configured as a single-page application router catch-all to prevent server-side hydration crashes)
+*   **Frontend**: React 18, TypeScript, Tailwind CSS
+*   **State Management**: Dependency-free reactive stores in `src/lib/` using React's native `useSyncExternalStore` API to ensure lightweight client-side state caches and fast renders
+*   **Drag & Drop**: Native HTML5 Drag and Drop events hook (`useReorder`) built dependency-free to minimize bundle size
+*   **UI Components**: Radix UI Primitives, Recharts, Lucide Icons, Tailwind CSS
+*   **Database & Auth**: Firebase SDK v10 (Authentication & Cloud Firestore)
 
 ---
 
 ## 🏗️ System Design & Architecture
 
-Work OS is a **configuration-driven developer portal**. Rather than compiling static fields for projects, accounts, and tasks, it fetches customizable schemas upon login and renders forms, panels, and layouts dynamically.
+Work OS is a **configuration-driven developer portal**. Rather than compiling static fields for projects, layouts, and tasks, it fetches customizable schemas upon login and renders forms, panels, and layouts dynamically.
 
-```
-┌────────────────────────────────────────────────────────┐
-│                      CLIENT SIDE                       │
-│                                                        │
-│  ┌──────────────────┐                                  │
-│  │   React View     │ <─────────────────────────────┐  │
-│  └────────┬─────────┘                               │  │
-│           │ Triggers Updates                        │  │
-│           ▼                                         │  │
-│  ┌──────────────────┐      Subscription Trigger     │  │
-│  │   projectsApi    │ ──────────────────────────┐   │  │
-│  │   schemaApi      │                           │   │  │
-│  └────────┬─────────┘                           ▼   │  │
-│           │                        ┌────────────┴┐  │  │
-│           │ Updates Memory Array   │ Listeners   │  │  │
-│           ▼                        │ (Set of cbs)│  │  │
-│  ┌──────────────────┐              └────────────┬┘  │  │
-│  │ Memory state     │                           │   │  │
-│  │ (e.g. items = [])│ <─────────────────────────┘   │  │
-│  └────────┬─────────┘                               │  │
-│           │                                         │  │
-│           │ Asynchronous Writes                     │  │
-│           ▼                                         │  │
-│  ┌──────────────────┐                               │  │
-│  │  Firestore SDK   │ ──────────────────────────────┘  │
-│  └────────┬─────────┘                                  │
-└───────────┼────────────────────────────────────────────┘
-            │
-            │ Async Network Transports
-            ▼
-┌────────────────────────────────────────────────────────┐
-│                     FIRESTORE DB                       │
-│                                                        │
-│  - users/{uid}/schema/main                             │
-│  - users/{uid}/projects/{projectId}                    │
-│  - users/{uid}/workspaceConfig/main                    │
-└────────────────────────────────────────────────────────┘
-```
+### 1. In-Depth Component & Reactivity Architecture
 
-### 1. High-Level Component & Reactivity Architecture
+Work OS eliminates standard external state managers (e.g., Zustand or Redux) to avoid dependency overhead, opting for a lightweight state-listener subscription structure using React's native `useSyncExternalStore`. 
 
-Work OS eliminates standard external state managers (e.g., Zustand or Redux) to avoid dependency overhead, opting for a lightweight state-listener subscription structure using React's native `useSyncExternalStore`. For renderers supporting Mermaid diagrams, the component flow is visualized below:
+> [!NOTE]
+> **Mermaid Diagrams Rendering:** If you see raw text block code like `graph TD` below, it is because your local text editor does not have a Mermaid preview extension active. Once pushed to **GitHub**, these blocks will automatically render into interactive visual system diagrams.
 
 ```mermaid
 graph TD
@@ -81,39 +45,60 @@ graph TD
     classDef store fill:#313244,stroke:#f5c2e7,stroke-width:2px,color:#cdd6f4
     classDef db fill:#181825,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4
 
-    subgraph Client ["Client-Side React SPA (Vite/Next.js Catch-All Router)"]
-        UI["React Component View<br/>(ProjectWorkspace, SchemaBuilder, Projects)"]:::client
+    subgraph Client ["Client-Side React SPA (Next.js routing to Vite App)"]
+        UI_KB["Quick Capture Keyboard Trigger<br/>(⌘⇧N Launcher / Palette)"]:::client
+        
+        subgraph UI_Views ["React Dashboard Layout Views"]
+            UI["Main Workspace View"]:::client
+            Configurator["Workspace Configurator<br/>(HTML5 Drag-and-Drop)"]:::client
+            SchemaBuilder["Schema Builder Panel<br/>(Custom Field Blueprint Definitions)"]:::client
+            ProjectsView["Projects Catalog list"]:::client
+            ProjectDetail["Project Workspace Detail Panel"]:::client
+        end
         
         subgraph Stores ["Custom Sync Store Layer"]
             S_Schema["schemaStore.ts<br/>(useSchema / schemaApi)"]:::store
             S_Projects["projectsStore.ts<br/>(useProject / projectsApi)"]:::store
-            S_Config["workspaceConfigStore.ts<br/>(useWorkspaceConfig)"]:::store
+            S_Config["workspaceConfigStore.ts<br/>(useWorkspaceConfig / configApi)"]:::store
+            S_Captures["captureStore.ts<br/>(useCaptures / captureApi)"]:::store
             
-            MemState["Memory Cache Arrays<br/>(items = [])"]:::store
-            Listeners["Listeners Map<br/>(Set of callbacks)"]:::store
+            MemState["Memory Cache Arrays<br/>(In-Memory caches: projects, captures, schema)"]:::store
+            Listeners["Listeners Map<br/>(Subscription callbacks set)"]:::store
         end
     end
 
     subgraph Backend ["Backend Cloud Infrastructure (Firebase)"]
-        Auth["Firebase Authentication<br/>(Google Identity Provider Only)"]:::db
-        Firestore["Cloud Firestore Database"]:::db
+        Auth["Firebase Authentication<br/>(Google, GitHub, & Email/Password)"]:::db
+        Firestore["Cloud Firestore Database<br/>(Flat collections with wrk_ prefix)"]:::db
     end
 
     %% Interactions
-    UI -->|1. Triggers Action| S_Projects
-    UI -->|1. Triggers Action| S_Schema
+    UI_KB -->|Launches QuickCapture| UI_Views
+    UI --> Configurator
+    UI --> SchemaBuilder
+    UI --> ProjectsView
+    ProjectsView --> ProjectDetail
     
-    S_Projects -->|2. Mutates Memory| MemState
-    S_Schema -->|2. Mutates Memory| MemState
+    Configurator -->|Updates Layout| S_Config
+    SchemaBuilder -->|Updates Blueprint Schema| S_Schema
+    ProjectsView -->|Mutates Projects| S_Projects
     
-    MemState -->|3. Triggers Notifications| Listeners
-    Listeners -->|4. Sync Re-render via useSyncExternalStore| UI
+    S_Schema --> MemState
+    S_Projects --> MemState
+    S_Config --> MemState
+    S_Captures --> MemState
     
-    S_Projects -.->|5. Async Write (Background)| Firestore
-    S_Schema -.->|5. Async Write (Background)| Firestore
-    UI -.->|Initialize Sessions| Auth
+    MemState -->|Triggers callbacks| Listeners
+    Listeners -->|Sync Re-render via useSyncExternalStore| UI_Views
+    
+    S_Schema -.->|Async Write (Background)| Firestore
+    S_Projects -.->|Async Write (Background)| Firestore
+    S_Config -.->|Async Write (Background)| Firestore
+    S_Captures -.->|Async Write (Background)| Firestore
+    
+    UI_Views -.->|Auth Check| Auth
     Auth -->|Loads User Profile UID| Stores
-    Firestore -.->|6. Fetch on Auth State Change| Stores
+    Firestore -.->|Fetch Collections on Auth State Change| Stores
 ```
 
 ### 2. Data Synchronization Lifecycle
@@ -128,9 +113,9 @@ sequenceDiagram
     participant Store as Local In-Memory Store
     participant Firestore as Cloud Firestore DB
 
-    Developer->>View: Interacts with UI (e.g., toggles a Workspace panel / edits Schema)
-    View->>Store: Calls API action (e.g., projectsApi.upsertProject(id, data))
-    Note over Store: Mutation is applied directly to the in-memory array
+    Developer->>View: Interacts with UI (e.g. toggles panels / edits schema / adds task)
+    View->>Store: Calls API action (e.g. projectsApi.saveProject(id, data))
+    Note over Store: Mutation is applied directly to the in-memory cache
     Store->>View: Triggers callbacks registered via useSyncExternalStore
     View-->>Developer: UI updates instantly (0ms visual delay)
     Store->>Firestore: Dispatches asynchronous write request via Firebase SDK
@@ -142,45 +127,90 @@ sequenceDiagram
     end
 ```
 
-### 3. Database Schema & Collections Layout
+### 3. Database Schema & Firestore Collections
 
-Firestore collections are isolated under user-scoped document roots to enforce strict multi-tenant separation:
+All queries scope strictly to the logged-in user's UID. The Firestore backend uses **flat root-level collections** prefixed with `wrk_` where documents contain a `userId` field (with the exception of config and schema documents, which use the user's `uid` as the document ID):
 
-*   `/users/{uid}` - User profile configuration document.
-    *   `/users/{uid}/schema/main` - Stores custom metadata blueprints for dynamic inputs:
-        ```typescript
-        interface Schema {
-          projects: {
-            statuses: { id: string; name: string; color: string }[];
-            fields: SchemaField[];
-            accounts: SchemaAccount[];
-          };
-          links: { fields: SchemaField[] };
-          tasks: { folders: boolean; tags: boolean; priority: boolean; fields: SchemaField[] };
-          commands: { categories: string[]; fields: SchemaField[] };
-        }
-        ```
-    *   `/users/{uid}/projects/{projectId}` - Contains details of each registered software asset:
-        ```typescript
-        interface Project {
-          id: string;
-          name: string;
-          status: string; // Dynamic status mapped to status schema
-          stack: string[];
-          deployments: ProjectDeployment[]; // URL, target, provider keys
-          services: ProjectService[]; // Service references, host configurations
-          accounts: string[]; // Foreign key references to verified SchemaAccounts
-          envVars: ProjectEnvVar[]; // Masked environment configurations (e.g., DEV_DB_PASS)
-          commands: ProjectCommand[]; // Quick CLI shell snippets
-        }
-        ```
-    *   `/users/{uid}/workspaceConfig/main` - Layout customisation options for each dashboard instance:
-        ```typescript
-        interface WorkspaceConfig {
-          columnOrder: string[]; // Custom drag-and-drop column positioning
-          enabledSections: string[]; // Toggled widgets (Tasks, Notes, Links, Calendar)
-        }
-        ```
+*   **`wrk_projects`**: Detail documents of all registered software projects.
+    ```typescript
+    interface Project {
+      id: string;
+      userId?: string;
+      name: string;
+      status: string; // Dynamic status mapped to schema definitions
+      stack: string[];
+      deployments: ProjectDeployment[]; // Provider, target and deploy urls
+      services: ProjectService[]; // Associated external API services config
+      accounts: string[]; // Linked credentials accounts IDs
+      envVars: ProjectEnvVar[]; // Masked environment variables
+      commands: ProjectCommand[]; // Inline terminal run playbooks
+    }
+    ```
+*   **`wrk_captures`**: Floating quick-captured logs and ideas.
+    ```typescript
+    interface CaptureItem {
+      id: string;
+      userId?: string;
+      title: string;
+      type: "idea" | "command" | "link";
+      createdAt: number;
+    }
+    ```
+*   **`wrk_tasks`**: Tasks linked to specific projects or workspaces.
+    ```typescript
+    interface WorkOsTask {
+      id: string;
+      userId?: string;
+      workspaceId: string;
+      title: string;
+      done: boolean;
+      priority: "high" | "medium" | "low";
+      createdAt: number;
+    }
+    ```
+*   **`wrk_notes`**: Standalone documentation notes.
+    ```typescript
+    interface WorkOsNote {
+      id: string;
+      userId?: string;
+      workspaceId?: string;
+      title: string;
+      body: string;
+      updatedAt: string;
+      tag: string;
+    }
+    ```
+*   **`wrk_links`**: Bookmark resources.
+    ```typescript
+    interface WorkOsLink {
+      id: string;
+      userId?: string;
+      workspaceId?: string;
+      name: string;
+      url: string;
+      category: string;
+    }
+    ```
+*   **`wrk_schema`**: Project field layouts and schema blueprints (document ID matches `user.uid`).
+    ```typescript
+    interface Schema {
+      projects: {
+        statuses: { id: string; name: string; color: string }[];
+        fields: SchemaField[];
+        accounts: SchemaAccount[];
+      };
+      links: { fields: SchemaField[] };
+      tasks: { folders: boolean; tags: boolean; priority: boolean; fields: SchemaField[] };
+      commands: { categories: string[]; fields: SchemaField[] };
+    }
+    ```
+*   **`wrk_workspaceConfig`**: Modular panel orders and section visibility status (document ID matches `user.uid`).
+    ```typescript
+    interface WorkspaceConfig {
+      columnOrder: string[]; // Reordered sections list
+      enabledSections: string[]; // Active toggled visual panels
+    }
+    ```
 
 ---
 
@@ -188,7 +218,7 @@ Firestore collections are isolated under user-scoped document roots to enforce s
 
 ### Prerequisites
 *   Node.js 18+ or Bun
-*   A Firebase project with **Google Provider** enabled in Authentication, and **Cloud Firestore** initialized.
+*   A Firebase project with **Email/Password**, **Google Provider**, and **GitHub Provider** enabled in Authentication, and **Cloud Firestore** initialized.
 
 ### Getting Started
 
@@ -228,17 +258,17 @@ Firestore collections are isolated under user-scoped document roots to enforce s
 
 ## 🗺️ Project Structure
 
-*   `src/` - Application source code
-    *   `components/dashboard/` - Interactive widgets (SchemaBuilder, WorkspaceConfig, OverviewCard, Sidebar, CustomWidgets)
-    *   `components/workos/` - Provider wrappers, quick-capture panel, and command palette
-    *   `components/ui/` - Reusable Radix UI design primitives
-    *   `views/` - Primary views (Projects list, ProjectWorkspace workspace detail drawer, Accounts, Calendar, Links, Notes, Tasks)
-    *   `lib/` - useSyncExternalStore state modules, Firestore integration layer (`firestoreData.ts`)
-*   `public/` - Static assets and application icons
+*   `src/` - Core application source
+    *   `components/dashboard/` - Interface widgets (SchemaBuilder, WorkspaceConfig, OverviewCard, Sidebar, TasksWidget, ProjectDetailPanel, etc.)
+    *   `components/workos/` - CommandPalette dialog, QuickCapture overlays, and WorkOS providers
+    *   `components/ui/` - Atomic Radix UI primitives and utility inputs
+    *   `contexts/` - Auth Context provider
+    *   `lib/` - useSyncExternalStore stores (`projectsStore.ts`, `schemaStore.ts`, `workspaceConfigStore.ts`), and Firebase setup configuration (`firebase.ts` / `firestoreData.ts`)
+    *   `views/` - Primary visual pages (Landing, SignIn, SignUp, Index, Projects, Accounts, Calendar, Links, Notes, Tasks, Settings)
 
 ---
 
 ## 📄 License & Contributing
 
-*   **Contributing**: We welcome open-source contributions! Please review our [Contributing Guidelines](CONTRIBUTING.md) to learn how to propose changes.
+*   **Contributing**: We welcome open-source contributions! Please review our [Contributing Guidelines](CONTRIBUTING.md) to learn how to propose changes, write code guidelines, and run tests.
 *   **License**: This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
