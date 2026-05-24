@@ -1,4 +1,5 @@
 import { CheckSquare, Plus } from "lucide-react";
+import { motion } from "framer-motion";
 import { PageLayout } from "@/components/dashboard/PageLayout";
 import { TasksWidget } from "@/components/dashboard/TasksWidget";
 
@@ -17,13 +18,20 @@ const Tasks = () => {
       action={{ label: "New Task", icon: <Plus className="h-3.5 w-3.5" /> }}
     >
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {stats.map((s) => (
-          <div key={s.label} className="rounded-lg border border-border bg-card shadow-card p-4">
+        {stats.map((s, idx) => (
+          <motion.div
+            key={s.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: idx * 0.05, ease: "easeOut" }}
+            whileHover={{ scale: 1.05, y: -2 }}
+            className="rounded-lg border border-border bg-card shadow-card p-4 transition-colors hover:border-primary/40 hover:shadow-glow cursor-default"
+          >
             <p className="text-xs text-muted-foreground font-medium">{s.label}</p>
             <p className={`text-2xl font-semibold tracking-tight tabular-nums mt-1 ${s.accent ? "text-gradient" : ""}`}>
               {s.value}
             </p>
-          </div>
+          </motion.div>
         ))}
       </div>
 

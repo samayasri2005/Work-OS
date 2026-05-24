@@ -13,6 +13,7 @@ import {
   Server,
   FileText,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { PageLayout } from "@/components/dashboard/PageLayout";
 import {
   Dialog,
@@ -146,11 +147,15 @@ const Projects = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((p) => (
-            <div
+          {filtered.map((p, index) => (
+            <motion.div
               key={p.id}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: index * 0.05, ease: "easeOut" }}
+              whileHover={{ scale: 1.02, y: -2 }}
               onClick={() => openDetail(p)}
-              className="group cursor-pointer rounded-lg border border-border bg-card shadow-card p-4 hover:border-primary/40 hover:shadow-glow hover:-translate-y-0.5 transition flex flex-col"
+              className="group cursor-pointer rounded-lg border border-border bg-card shadow-card p-4 hover:border-primary/40 hover:shadow-glow transition-all duration-300 flex flex-col"
             >
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2 min-w-0">
@@ -228,7 +233,7 @@ const Projects = () => {
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       )}
