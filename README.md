@@ -13,6 +13,7 @@ Work OS is a professional, open-source, configuration-driven developer workspace
 *   **Floating Quick Capture**: A keyboard-accessible capture drawer (`⌘⇧N` or floating button launcher) to capture bookmarks, ideas, command snippets, or tasks immediately into project backlogs.
 *   **Terminal Command Playbooks**: Maintain an interactive playbook of project-specific commands (e.g., dev servers, deployment scripts, database migrations) with quick-copy actions.
 *   **Multi-Provider Authentication**: Secure accounts managed via Firebase Authentication supporting Google SSO, GitHub SSO, and traditional Email/Password credentials.
+*   **Companion Chrome Extension**: Includes a dedicated Quick Capture Chrome Extension to instantly bookmark active tabs and save them directly into your Work OS backend without context-switching.
 
 ---
 
@@ -266,9 +267,32 @@ All queries scope strictly to the logged-in user's UID. The Firestore backend us
     *   `lib/` - useSyncExternalStore stores (`projectsStore.ts`, `schemaStore.ts`, `workspaceConfigStore.ts`), and Firebase setup configuration (`firebase.ts` / `firestoreData.ts`)
     *   `views/` - Primary visual pages (Landing, SignIn, SignUp, Index, Projects, Accounts, Calendar, Links, Notes, Tasks, Settings)
 
+## 🧩 Chrome Extension (Quick Capture)
+
+Work OS includes a companion Manifest V3 Chrome Extension located in the [`extension/`](extension/) directory.
+
+It allows you to securely authenticate with your workspace and instantly capture the active tab (Title & URL) into your `wrk_captures` Firestore collection. Because of the optimistic real-time stores, captured links appear instantly on your Work OS dashboard without reloading.
+
+**To install the extension:**
+1. Navigate to the `extension` folder and run `npm install` and `npm run build`.
+2. Open Chrome and go to `chrome://extensions/`.
+3. Enable **Developer mode**.
+4. Click **Load unpacked** and select the `Work OS/extension/dist` directory.
+
 ---
 
-## 📄 License & Contributing
+## 🔒 Security & Firestore Rules
 
-*   **Contributing**: We welcome open-source contributions! Please review our [Contributing Guidelines](CONTRIBUTING.md) to learn how to propose changes, write code guidelines, and run tests.
+Work OS secures all data inherently via the authenticated User ID mapping. Ensure you deploy the customized Firestore security rules provided in `firestore.rules`.
+
+```bash
+# Deploy Firestore Rules
+firebase deploy --only firestore:rules
+```
+
+---
+
+## 🤝 Contributing
+
+Read the [CONTRIBUTING.md](./CONTRIBUTING.md) for details on code standards, local routing strategies, and submitting Pull Requests.
 *   **License**: This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

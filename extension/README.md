@@ -1,73 +1,58 @@
-# React + TypeScript + Vite
+# Work OS Quick Capture Extension 🧩
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the official companion Chrome Extension for **Work OS**. It provides an instant quick-capture tool directly inside your browser so you can save active URLs to your workspace without breaking your workflow.
 
-Currently, two official plugins are available:
+Because Work OS utilizes real-time Firestore listeners, any link you capture via this extension will instantaneously appear in your Work OS Command Palette (`⌘K`) and your Quick Capture streams.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## ✨ Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Isolated Build:** Lightweight React & Vite architecture independent of the main app.
+- **Manifest V3:** Fully compliant with Chrome Web Store modern standards.
+- **Privacy-first Permissions:** Uses the `activeTab` permission. It only accesses the specific tab you are viewing *when you click the extension icon*, guaranteeing privacy.
+- **Native Authentication:** Integrates directly with your Work OS Firebase project so all captures are securely scoped to your specific `uid`.
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🛠️ Installation & Setup (Developer Mode)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 1. Build the Extension
+Ensure you are in the `extension` directory, install the dependencies, and build the distribution folder:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd extension
+npm install
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+*(Note: The `vite.config.ts` is specifically configured to build without filename hashing, which is required for Chrome Extensions).*
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 2. Load into Chrome
+1. Open Google Chrome and navigate to `chrome://extensions/`.
+2. Toggle on **"Developer mode"** in the top right corner.
+3. Click the **"Load unpacked"** button in the top left.
+4. Select the `dist` folder located at `Work OS/extension/dist`.
+5. The extension will now appear in your browser! Pin it to your toolbar for easy access.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
+
+## 🚀 Usage
+
+1. Navigate to an interesting repository, API document, or reference link.
+2. Click the **Work OS Capture** extension icon in your toolbar.
+3. The extension will request the current authentication state from the open Work OS web app. Ensure you are signed in there; if not, the extension will open the Work OS login page.
+4. Click **"Save to Work OS"**.
+5. Your link is now instantly saved into your Work OS backend!
+
+---
+
+## 🧑‍💻 Development
+
+If you want to modify the extension (e.g., adding tags, custom notes, or idea tracking):
+
+```bash
+npm run dev
 ```
+
+Remember to run `npm run build` again and click the "Refresh" icon on the extension page in Chrome (`chrome://extensions/`) to load your new changes.

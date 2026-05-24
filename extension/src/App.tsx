@@ -1,179 +1,148 @@
 import { useEffect, useState } from "react";
-import { auth, db } from "./firebase";
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
-import type { User } from "firebase/auth";
-import { collection, doc, setDoc } from "firebase/firestore";
-import { LogIn, LogOut, Check, Loader2, Bookmark } from "lucide-react";
+import { LogOut, Check, Loader2, Bookmark } from "lucide-react";
+
+// Extension UI uses chrome.runtime messaging to communicate with the content script which forwards to the Work OS page.
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loadingAuth, setLoadingAuth] = useState(true);
-  
-  // Login State
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [authUser, setAuthUser] = useState<string | null>(null);
+  const [captureStatus, setCaptureStatus] = useState<string>("");
 
-  // Capture State
-  const [tabInfo, setTabInfo] = useState<{ title: string; url: string } | null>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [captureSuccess, setCaptureSuccess] = useState(false);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoadingAuth(false);
+  // Helper to send a message via chrome.tabs messaging to the active tab
+  const sendRuntimeMessage = (msg: any): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      // Get the active tab in the current window
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        const tab = tabs[0];
+        if (!tab?.id) {
+          reject(new Error('No active tab found'));
+          return;
+        }
+        // Send the message to the content script in the active tab
+        chrome.tabs.sendMessage(tab.id, msg, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response);
+          }
+        });
+      });
     });
-    return unsub;
+  };
+
+  // Request auth state from the web app via the content script bridge
+  const requestAuthState = async () => {
+    try {
+      const resp: any = await sendRuntimeMessage({ source: "extension", type: "REQUEST_AUTH_STATE" });
+      if (resp?.source === "webapp" && resp?.type === "AUTH_STATE" && resp?.payload?.uid) {
+        setAuthUser(resp.payload.uid);
+        chrome.storage.local.set({ authUser: resp.payload.uid });
+        // Optionally inform the page that auth is established
+        await sendRuntimeMessage({ source: "extension", type: "AUTH_STATE_CONFIRMED", payload: { uid: resp.payload.uid } });
+      } else {
+        setAuthUser(null);
+      }
+    } catch (e) {
+      console.error("Failed to get auth state", e);
+      setAuthUser(null);
+    }
+  };
+
+  // Capture the current page URL and title via the content script bridge
+  const handleCapture = async () => {
+    if (!authUser) {
+      setCaptureStatus("Not authenticated");
+      return;
+    }
+    setLoading(true);
+    setCaptureStatus("");
+    try {
+      const payload = {
+        url: window.location.href,
+        title: document.title,
+        timestamp: new Date().toISOString(),
+        uid: authUser,
+      };
+      const resp: any = await sendRuntimeMessage({ source: "extension", type: "CAPTURE_LINK", payload });
+      if (resp?.source === "webapp" && resp?.type === "CAPTURE_ACK") {
+        setCaptureStatus("Saved!");
+      } else {
+        setCaptureStatus("Failed to save");
+      }
+    } catch (e) {
+      console.error(e);
+      setCaptureStatus("Error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // On mount, request auth state and listen for auth updates from the page
+  useEffect(() => {
+    requestAuthState();
+    const listener = (event: MessageEvent) => {
+      const data = event.data;
+      if (data?.source === "webapp" && data?.type === "AUTH_STATE") {
+        setAuthUser(data.payload?.uid ?? null);
+        chrome.storage.local.set({ authUser: data.payload?.uid ?? null });
+      }
+    };
+    window.addEventListener("message", listener);
+    return () => window.removeEventListener("message", listener);
   }, []);
 
-  useEffect(() => {
-    if (user && typeof chrome !== 'undefined' && chrome.tabs) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs: chrome.tabs.Tab[]) => {
-        if (tabs[0]) {
-          setTabInfo({ title: tabs[0].title || "", url: tabs[0].url || "" });
-        }
-      });
-    }
-  }, [user]);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError("");
-    setIsLoggingIn(true);
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err: any) {
-      setLoginError(err.message || "Failed to log in.");
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  const handleLogout = () => {
-    signOut(auth);
-  };
-
-  const handleCapture = async () => {
-    if (!user || !tabInfo) return;
-    setIsCapturing(true);
-    try {
-      const id = crypto.randomUUID();
-      const payload = {
-        id,
-        userId: user.uid,
-        kind: "link",
-        title: tabInfo.title,
-        url: tabInfo.url,
-        createdAt: Date.now(),
-      };
-      
-      await setDoc(doc(collection(db, "wrk_captures"), id), payload);
-      setCaptureSuccess(true);
-      setTimeout(() => {
-        window.close(); // Close the popup after success
-      }, 1500);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to save capture.");
-    } finally {
-      setIsCapturing(false);
-    }
-  };
-
-  if (loadingAuth) {
-    return (
-      <div className="w-80 h-48 bg-background flex items-center justify-center dark">
-        <Loader2 className="animate-spin text-primary h-6 w-6" />
-      </div>
-    );
-  }
-
   return (
-    <div className="w-80 min-h-[280px] bg-background text-foreground flex flex-col font-sans dark">
-      {/* Header */}
-      <div className="border-b border-border/40 px-4 py-3 flex items-center justify-between bg-card">
-        <div className="flex items-center gap-2">
-          <Bookmark className="h-4 w-4 text-primary" />
-          <h1 className="font-semibold text-sm">Work OS Capture</h1>
-        </div>
-        {user && (
-          <button onClick={handleLogout} className="text-muted-foreground hover:text-foreground transition-colors" title="Sign out">
-            <LogOut className="h-3.5 w-3.5" />
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
+      <h1 className="text-2xl font-bold mb-4">Work OS Capture</h1>
+      {authUser ? (
+        <div className="flex flex-col items-center">
+          <p className="mb-2">Signed in as {authUser}</p>
+          <button
+            onClick={handleCapture}
+            disabled={loading}
+            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded mb-2"
+          >
+            {loading ? (
+              <Loader2 className="animate-spin w-5 h-5" />
+            ) : (
+              <Bookmark className="w-5 h-5" />
+            )}
+            <span>{loading ? "Saving..." : "Save to Work OS"}</span>
           </button>
-        )}
-      </div>
-
-      {/* Body */}
-      <div className="p-4 flex-1 flex flex-col">
-        {!user ? (
-          <form onSubmit={handleLogin} className="flex flex-col gap-3 flex-1 justify-center">
-            <p className="text-xs text-muted-foreground mb-1">Sign in to save links to your workspace.</p>
-            {loginError && <p className="text-[10px] text-red-500">{loginError}</p>}
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="px-3 py-2 text-sm bg-muted/50 border border-border rounded-md outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
-              required
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="px-3 py-2 text-sm bg-muted/50 border border-border rounded-md outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
-              required
-            />
-            <button
-              type="submit"
-              disabled={isLoggingIn}
-              className="mt-1 bg-primary text-primary-foreground font-medium text-sm py-2 rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 flex justify-center items-center gap-2"
-            >
-              {isLoggingIn ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <LogIn className="h-3.5 w-3.5" />}
-              Sign In
-            </button>
-          </form>
-        ) : (
-          <div className="flex flex-col flex-1">
-            <div className="flex-1">
-              <p className="text-xs font-semibold text-muted-foreground mb-1">Current Page</p>
-              {tabInfo ? (
-                <div className="bg-muted/30 border border-border/50 rounded-lg p-3">
-                  <p className="text-sm font-medium line-clamp-2 leading-tight mb-1">{tabInfo.title}</p>
-                  <p className="text-[10px] text-muted-foreground truncate">{tabInfo.url}</p>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">Loading tab info...</p>
-              )}
-            </div>
-            
-            <button
-              onClick={handleCapture}
-              disabled={isCapturing || captureSuccess || !tabInfo}
-              className={`mt-4 font-medium text-sm py-2.5 rounded-md transition-all flex justify-center items-center gap-2
-                ${captureSuccess ? 'bg-green-500 text-white' : 'bg-primary text-primary-foreground hover:opacity-90'}
-                disabled:opacity-70`}
-            >
-              {isCapturing ? (
-                <Loader2 className="animate-spin h-4 w-4" />
-              ) : captureSuccess ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  Saved!
-                </>
-              ) : (
-                <>
-                  <Bookmark className="h-4 w-4" />
-                  Save to Work OS
-                </>
-              )}
-            </button>
-          </div>
-        )}
-      </div>
+          {captureStatus && <p className="mt-2 text-sm">{captureStatus}</p>}
+          <button
+            onClick={() => {
+              sendRuntimeMessage({ source: "extension", type: "SIGN_OUT_REQUEST" })
+                .catch(() => {})
+                .finally(() => {
+                  setAuthUser(null);
+                  chrome.storage.local.remove(["authUser"]);
+                });
+            }}
+            className="flex items-center space-x-2 bg-red-600 hover:bg-red-5 text-white font-bold py-1 px-3 rounded mt-4"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center">
+          <p className="mb-2">You need to be signed in to the Work OS web app.</p>
+          <button
+            onClick={() => {
+              chrome.tabs.create({ url: "https://work-os-sooty.vercel.app" });
+            }}
+            className="flex items-center space-x-2 bg-green-600 hover:bg-green-5 text-white font-bold py-1 px-3 rounded"
+          >
+            <Check className="w-4 h-4" />
+            <span>Open Work OS</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
