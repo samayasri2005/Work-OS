@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   ArrowLeft,
   Pencil,
@@ -216,6 +217,62 @@ const AddModal = <T extends Record<string, string>>({
   );
 };
 
+const cleanUrl = (url: string) => {
+  return url
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/+$/, "")
+    .toLowerCase();
+};
+
+const VercelStatusBadge = ({ state }: { state: string }) => {
+  let color = "bg-muted text-muted-foreground border-border";
+  let label = state;
+
+  switch (state.toUpperCase()) {
+    case "READY":
+      color = "bg-success/10 text-success border-success/30";
+      label = "Ready";
+      break;
+    case "BUILDING":
+    case "INITIALIZING":
+      color = "bg-warning/10 text-warning border-warning/30 animate-pulse";
+      label = "Building";
+      break;
+    case "ERROR":
+    case "FAILED":
+      color = "bg-destructive/10 text-destructive border-destructive/30";
+      label = "Failed";
+      break;
+    case "QUEUED":
+      color = "bg-info/10 text-info border-info/30";
+      label = "Queued";
+      break;
+    case "CANCELED":
+      color = "bg-muted text-muted-foreground border-border";
+      label = "Canceled";
+      break;
+  }
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium border uppercase shrink-0",
+        color
+      )}
+    >
+      <span className={cn(
+        "h-1.5 w-1.5 rounded-full",
+        state.toUpperCase() === "READY" && "bg-success",
+        (state.toUpperCase() === "BUILDING" || state.toUpperCase() === "INITIALIZING") && "bg-warning",
+        (state.toUpperCase() === "ERROR" || state.toUpperCase() === "FAILED") && "bg-destructive",
+        state.toUpperCase() === "QUEUED" && "bg-info",
+        state.toUpperCase() === "CANCELED" && "bg-muted-foreground"
+      )} />
+      {label}
+    </span>
+  );
+};
+
 /* ---------- Page ---------- */
 
 const ProjectWorkspace = () => {
@@ -223,6 +280,46 @@ const ProjectWorkspace = () => {
   const navigate = useNavigate();
   const project = useProject(id);
   const wsConfig = useWorkspaceConfig();
+  const { userProfile } = useAuth();
+  const [vercelDeployments, setVercelDeployments] = useState<any[]>([]);
+
+  useEffect(() => {
+    const token = userProfile?.apiKeys?.vercel;
+    if (!token) return;
+
+    let isMounted = true;
+    const fetchVercel = async () => {
+      try {
+        const res = await fetch("https://api.vercel.com/v6/deployments?limit=50", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) throw new Error("Vercel API error");
+        const data = await res.json();
+        if (isMounted && data?.deployments) {
+          setVercelDeployments(data.deployments);
+        }
+      } catch (err) {
+        console.error("Error fetching Vercel deployments:", err);
+      }
+    };
+
+    fetchVercel();
+    const timer = setInterval(fetchVercel, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, [userProfile?.apiKeys?.vercel]);
+
+  const getVercelStatus = (depUrl: string) => {
+    const cleanedDep = cleanUrl(depUrl);
+    return vercelDeployments.find((vd) => {
+      const cleanedVd = cleanUrl(vd.url);
+      return cleanedVd === cleanedDep || cleanedDep.includes(cleanedVd) || cleanedVd.includes(cleanedDep);
+    });
+  };
 
   const [addOpen, setAddOpen] = useState<null | "deployment" | "service" | "account" | "command" | "env">(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -409,6 +506,12 @@ const ProjectWorkspace = () => {
                     </Badge>
                     <span className="text-xs text-muted-foreground shrink-0">{d.method}</span>
                     <span className="text-sm truncate flex-1 font-mono">{d.url}</span>
+                    {userProfile?.apiKeys?.vercel && (() => {
+                      const vDep = getVercelStatus(d.url);
+                      return vDep ? (
+                        <VercelStatusBadge state={vDep.state} />
+                      ) : null;
+                    })()}
                     <a
                       href={d.url}
                       target="_blank"

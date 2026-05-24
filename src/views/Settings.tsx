@@ -1,12 +1,12 @@
-import { useMemo, useState } from "react";
-import { User, Bell, Palette, Shield, CreditCard, Save, Sun, Moon, SlidersHorizontal } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { User, Bell, Palette, Shield, CreditCard, Save, Sun, Moon, SlidersHorizontal, Link } from "lucide-react";
 import { PageLayout } from "@/components/dashboard/PageLayout";
 import { useTheme } from "@/components/ThemeProvider";
 import { WorkspaceConfig } from "@/components/dashboard/WorkspaceConfig";
 import { SchemaBuilder } from "@/components/dashboard/SchemaBuilder";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { APP_ID, DEFAULT_SENDER_EMAIL, updateAppNotificationPreferences } from "@/lib/userProfile";
+import { APP_ID, DEFAULT_SENDER_EMAIL, updateAppNotificationPreferences, updateApiKeys } from "@/lib/userProfile";
 import { sendNotificationTestEmail } from "@/lib/emailNotifications";
 import { toast } from "sonner";
 
@@ -15,6 +15,7 @@ const sections = [
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "workspace", label: "Workspace", icon: SlidersHorizontal },
   { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "integrations", label: "Integrations", icon: Link },
   { id: "security", label: "Security", icon: Shield },
   { id: "billing", label: "Billing", icon: CreditCard },
 ];
@@ -46,6 +47,13 @@ const Settings = () => {
   const [twoFA, setTwoFA] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
   const { user, userProfile, signOut, refreshProfile } = useAuth();
+  const [vercelToken, setVercelToken] = useState("");
+
+  useEffect(() => {
+    if (userProfile?.apiKeys?.vercel) {
+      setVercelToken(userProfile.apiKeys.vercel);
+    }
+  }, [userProfile]);
 
   const notificationPrefs = useMemo(
     () => userProfile?.notificationPreferences?.apps?.[APP_ID],
@@ -224,6 +232,50 @@ const Settings = () => {
                   <button onClick={() => void runTestEmail()} className="text-xs border border-border rounded-md px-3 py-1.5 bg-card hover:bg-accent transition font-medium" disabled={testingEmail}>
                     {testingEmail ? "Sending..." : "Send test email"}
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {active === "integrations" && (
+            <div className="rounded-lg border border-border bg-card shadow-card p-6">
+              <h2 className="text-sm font-semibold mb-1">Integrations</h2>
+              <p className="text-xs text-muted-foreground mb-5 font-light">
+                Configure API tokens to integrate with external tools and cloud providers.
+              </p>
+              <div className="space-y-4">
+                <div className="rounded-md border border-border bg-background p-4 space-y-4">
+                  <div>
+                    <p className="text-sm font-medium">Vercel Integration</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Enter a Vercel Access Token to display live deployment status badges for linked Vercel projects.
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3 items-end">
+                    <div className="flex-grow">
+                      <Field
+                        label="Vercel Access Token"
+                        value={vercelToken}
+                        onChange={setVercelToken}
+                        type="password"
+                      />
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!user) return;
+                        try {
+                          await updateApiKeys(user.uid, { vercel: vercelToken });
+                          await refreshProfile();
+                          toast.success("Vercel token saved");
+                        } catch (err) {
+                          toast.error("Failed to save Vercel token");
+                        }
+                      }}
+                      className="text-xs btn-gradient rounded-md px-4 py-2 font-medium h-9"
+                    >
+                      Save Vercel Token
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
