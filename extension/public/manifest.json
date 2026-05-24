@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Work OS Quick Capture",
+  "version": "1.0",
+  "description": "Quickly capture links and ideas to your Work OS.",
+  "action": {
+    "default_popup": "index.html"
+  },
+  "permissions": [
+    "activeTab",
+    "storage"
+  ]
+}
