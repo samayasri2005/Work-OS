@@ -15,7 +15,7 @@ import { initProjectsStore, clearProjectsStore } from "@/lib/projectsStore";
 import { initCaptureStore, clearCaptureStore } from "@/lib/captureStore";
 import { initSchemaStore, clearSchemaStore } from "@/lib/schemaStore";
 import { initWorkspaceConfigStore, clearWorkspaceConfigStore } from "@/lib/workspaceConfigStore";
-import { initWorkspacesStore, clearWorkspacesStore } from "@/lib/workspacesStore";
+import { initWorkspacesStore, clearWorkspacesStore, getActiveWorkspaceId } from "@/lib/workspacesStore";
 
 type AuthContextType = {
   user: User | null;
@@ -93,7 +93,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { type, id, payload } = data;
       if (type === 'GET_AUTH_STATE') {
         const user = auth.currentUser;
-        const response = { uid: user?.uid || null, email: user?.email || null };
+        const response = { 
+          uid: user?.uid || null, 
+          email: user?.email || null,
+          activeWorkspaceId: getActiveWorkspaceId() || 'work-main'
+        };
         window.postMessage({ source: 'webapp', replyTo: id, response }, '*');
       } else if (type === 'SAVE_CAPTURE') {
         if (!auth.currentUser) {
@@ -114,6 +118,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           window.postMessage({ source: 'webapp', replyTo: id, response: { success: true } }, '*');
         } catch (e) {
           console.error('Failed to save capture via bridge', e);
+          window.postMessage({ source: 'webapp', replyTo: id, error: String(e) }, '*');
+        }
+      } else if (type === 'SAVE_LINK') {
+        if (!auth.currentUser) {
+          window.postMessage({ source: 'webapp', replyTo: id, error: 'Not authenticated' }, '*');
+          return;
+        }
+        const { name, url, category, workspaceId } = payload;
+        const linkId = crypto.randomUUID();
+        try {
+          await setDoc(doc(collection(db, 'wrk_links'), linkId), {
+            id: linkId,
+            userId: auth.currentUser!.uid,
+            workspaceId: workspaceId || 'work-main',
+            name,
+            url,
+            category,
+          });
+          window.postMessage({ source: 'webapp', replyTo: id, response: { success: true } }, '*');
+        } catch (e) {
+          console.error('Failed to save link via bridge', e);
           window.postMessage({ source: 'webapp', replyTo: id, error: String(e) }, '*');
         }
       }

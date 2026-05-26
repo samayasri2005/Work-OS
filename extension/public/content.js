@@ -9,6 +9,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return false;
   }
 
+  // Generate an ID if not present
+  const msgId = msg.id || Math.random().toString(36).substring(2, 15);
+  msg.id = msgId;
+
   // Forward the message to the page
   window.postMessage(msg, '*');
 
@@ -16,14 +20,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const handler = (event) => {
     const data = event.data;
     if (!data || data.source !== 'webapp') return;
-    // Match the response type to the request type
-    if (msg.type === 'REQUEST_AUTH_STATE' && data.type === 'AUTH_STATE') {
-      sendResponse(data);
-      window.removeEventListener('message', handler);
-    } else if (msg.type === 'CAPTURE_LINK' && data.type === 'CAPTURE_ACK') {
-      sendResponse(data);
-      window.removeEventListener('message', handler);
-    } else if (msg.type === 'SIGN_OUT_REQUEST' && data.type === 'SIGN_OUT_ACK') {
+    
+    // Match response by replyTo
+    if (data.replyTo === msgId) {
       sendResponse(data);
       window.removeEventListener('message', handler);
     }
