@@ -16,6 +16,7 @@ import { initCaptureStore, clearCaptureStore } from "@/lib/captureStore";
 import { initSchemaStore, clearSchemaStore } from "@/lib/schemaStore";
 import { initWorkspaceConfigStore, clearWorkspaceConfigStore } from "@/lib/workspaceConfigStore";
 import { initWorkspacesStore, clearWorkspacesStore, getActiveWorkspaceId } from "@/lib/workspacesStore";
+import { useTasksStore } from "@/lib/tasksStore";
 
 type AuthContextType = {
   user: User | null;
@@ -58,6 +59,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         clearSchemaStore();
         clearWorkspaceConfigStore();
         clearWorkspacesStore();
+        useTasksStore.getState().clearTasksStore();
         setLoading(false);
         return;
       }
@@ -72,6 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           initSchemaStore(nextUser.uid),
           initWorkspaceConfigStore(nextUser.uid),
           initWorkspacesStore(nextUser.uid),
+          useTasksStore.getState().initTasksStore(nextUser.uid),
         ]);
       } finally {
         setLoading(false);
@@ -154,6 +157,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     clearSchemaStore();
     clearWorkspaceConfigStore();
     clearWorkspacesStore();
+    useTasksStore.getState().clearTasksStore();
     await firebaseSignOut(auth);
   };
 

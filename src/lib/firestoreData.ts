@@ -71,8 +71,15 @@ export interface WorkOsTask {
   userId?: string;
   workspaceId: string;
   title: string;
+  description?: string;
   done: boolean;
   priority: "high" | "medium" | "low";
+  folderId?: string;
+  parentId?: string;
+  dueDate?: string;
+  tags?: string[];
+  order?: number;
+  recurrence?: string;
   createdAt: number;
 }
 
@@ -88,6 +95,30 @@ export const saveTask = async (uid: string, task: WorkOsTask): Promise<void> => 
 
 export const deleteTask = async (uid: string, id: string): Promise<void> => {
   await deleteDoc(doc(db, "wrk_tasks", id));
+};
+
+// ── Folders ────────────────────────────────────────────────────────────────
+
+export interface WorkOsFolder {
+  id: string;
+  userId?: string;
+  workspaceId: string;
+  name: string;
+  order: number;
+}
+
+export const fetchFolders = async (uid: string): Promise<WorkOsFolder[]> => {
+  const q = query(collection(db, "wrk_folders"), where("userId", "==", uid));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data() as WorkOsFolder);
+};
+
+export const saveFolder = async (uid: string, folder: WorkOsFolder): Promise<void> => {
+  await setDoc(doc(db, "wrk_folders", folder.id), { ...folder, userId: uid });
+};
+
+export const deleteFolder = async (uid: string, id: string): Promise<void> => {
+  await deleteDoc(doc(db, "wrk_folders", id));
 };
 
 // ── Notes ──────────────────────────────────────────────────────────────────
